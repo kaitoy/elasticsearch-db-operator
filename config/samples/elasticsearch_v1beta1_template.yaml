@@ -1,0 +1,32 @@
+apiVersion: elasticsearchdb.kaitoy.github.com/v1beta1
+kind: Template
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: template-sample
+url:
+  elasticsearchEndpoint: http://elasticsearch:9200
+  template: user_template
+spec:
+  index_patterns:
+    - user-*
+  settings:
+    index:
+      number_of_shards: 5
+      number_of_replicas: 1
+  order: 10
+  version: 3
+  mappings:
+    _doc:
+      _source:
+        enabled: true
+      properties:
+        age:
+          type: integer
+        name:
+          properties:
+            first:
+              type: keyword
+              boost: 2.5
+            last:
+              type: keyword
