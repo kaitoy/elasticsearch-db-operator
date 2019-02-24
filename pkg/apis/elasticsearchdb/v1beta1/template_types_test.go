@@ -34,7 +34,48 @@ func TestStorageTemplate(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "default",
-		}}
+		},
+		URL: TemplateURL{
+			ElasticsearchEndpoint: "http://elasticsearch:9200",
+			Template:              "foo",
+		},
+		Spec: TemplateSpec{
+			IndexPatterns: []string{
+				"user_*",
+			},
+			Settings: &Settings{
+				Index: IndexSettings{
+					NumberOfShards:   10,
+					NumberOfReplicas: 2,
+				},
+			},
+			Order:   10,
+			Version: 5,
+			Mappings: map[string]Mapping{
+				"_doc": Mapping{
+					Source: &Source{
+						Enabled: true,
+					},
+					Properties: map[string]Property{
+						"age": Property{
+							Type: "integer",
+						},
+						"name": Property{
+							Properties: map[string]Property{
+								"first": Property{
+									Type:  "keyword",
+									Boost: 2.5,
+								},
+								"last": Property{
+									Type: "keyword",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 	g := gomega.NewGomegaWithT(t)
 
 	// Test Create

@@ -52,12 +52,15 @@ type Template struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	URL struct {
-		ElasticsearchEndpoint string `json:"elasticsearchEndpoint"`
-		Template              string `json:"template"`
-	} `json:"url"`
+	URL    TemplateURL    `json:"url"`
 	Spec   TemplateSpec   `json:"spec,omitempty"`
 	Status TemplateStatus `json:"status,omitempty"`
+}
+
+// TemplateURL represents a URL of a template.
+type TemplateURL struct {
+	ElasticsearchEndpoint string `json:"elasticsearchEndpoint"`
+	Template              string `json:"template"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

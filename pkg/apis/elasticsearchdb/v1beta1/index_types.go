@@ -224,12 +224,15 @@ type Index struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	URL struct {
-		ElasticsearchEndpoint string `json:"elasticsearchEndpoint"`
-		Index                 string `json:"index"`
-	} `json:"url"`
+	URL    IndexURL    `json:"url"`
 	Spec   IndexSpec   `json:"spec,omitempty"`
 	Status IndexStatus `json:"status,omitempty"`
+}
+
+// IndexURL represents a URL of an index.
+type IndexURL struct {
+	ElasticsearchEndpoint string `json:"elasticsearchEndpoint"`
+	Index                 string `json:"index"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

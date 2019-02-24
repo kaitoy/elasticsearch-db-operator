@@ -41,7 +41,44 @@ const timeout = time.Second * 5
 
 func TestReconcile(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	instance := &elasticsearchdbv1beta1.Index{ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"}}
+	instance := &elasticsearchdbv1beta1.Index{
+		ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+		URL: elasticsearchdbv1beta1.IndexURL{
+			ElasticsearchEndpoint: "http://elasticsearch:9200",
+			Index:                 "foo",
+		},
+		Spec: elasticsearchdbv1beta1.IndexSpec{
+			Settings: &elasticsearchdbv1beta1.Settings{
+				Index: elasticsearchdbv1beta1.IndexSettings{
+					NumberOfShards:   10,
+					NumberOfReplicas: 2,
+				},
+			},
+			Mappings: map[string]elasticsearchdbv1beta1.Mapping{
+				"_doc": elasticsearchdbv1beta1.Mapping{
+					Source: &elasticsearchdbv1beta1.Source{
+						Enabled: true,
+					},
+					Properties: map[string]elasticsearchdbv1beta1.Property{
+						"age": elasticsearchdbv1beta1.Property{
+							Type: "integer",
+						},
+						"name": elasticsearchdbv1beta1.Property{
+							Properties: map[string]elasticsearchdbv1beta1.Property{
+								"first": elasticsearchdbv1beta1.Property{
+									Type:  "keyword",
+									Boost: 2.5,
+								},
+								"last": elasticsearchdbv1beta1.Property{
+									Type: "keyword",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
