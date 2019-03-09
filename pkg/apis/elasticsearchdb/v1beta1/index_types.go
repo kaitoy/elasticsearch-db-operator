@@ -23,8 +23,34 @@ import (
 // IndexSpec defines the desired state of Index
 // https://www.elastic.co/guide/en/elasticsearch/reference/current/index-modules.html
 type IndexSpec struct {
+	Aliases  map[string]Alias   `json:"aliases,omitempty"`
 	Settings *Settings          `json:"settings,omitempty"`
 	Mappings map[string]Mapping `json:"mappings"`
+}
+
+// Alias type represents an alias of an index
+// https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-aliases.html
+type Alias struct {
+	IndexRouting  string  `json:"index_routing,omitempty"`
+	SearchRouting string  `json:"search_routing,omitempty"`
+	IsWriteIndex  bool    `json:"is_write_index,omitempty"`
+	Filter        *Filter `json:"filter,omitempty"`
+}
+
+// Filter type represents an filter of an alias field
+type Filter struct {
+	Term  map[string]string `json:"term,omitempty"`
+	Range map[string]Range  `json:"range,omitempty"`
+}
+
+// Range type represents a range of a filter
+type Range struct {
+	Gt       metav1.Time `json:"gt,omitempty"`
+	Lt       metav1.Time `json:"lt,omitempty"`
+	Gte      metav1.Time `json:"gte,omitempty"`
+	Lte      metav1.Time `json:"lte,omitempty"`
+	Format   string      `json:"format,omitempty"`
+	TimeZone string      `json:"time_zone,omitempty"`
 }
 
 // Settings type represents settings of an index
@@ -35,6 +61,10 @@ type Settings struct {
 
 // IndexSettings represents the index property of Settings
 type IndexSettings struct {
+	CreationDate            int64            `json:"creation_date,omitempty"`
+	UUID                    string           `json:"uuid,omitempty"`
+	Version                 *Version         `json:"version,omitempty"`
+	ProvidedName            string           `json:"provided_name,omitempty"`
 	NumberOfShards          int32            `json:"number_of_shards,omitempty"`
 	NumberOfReplicas        int32            `json:"number_of_replicas,omitempty"`
 	Codec                   string           `json:"codec,omitempty"`
@@ -57,6 +87,11 @@ type IndexSettings struct {
 	MaxRegexLength          int32            `json:"max_regex_length,omitempty"`
 	DefaultPipeline         string           `json:"default_pipeline,omitempty"`
 	Mapping                 *MappingSetting  `json:"mapping,omitempty"`
+}
+
+// Version represents the version property of an IndexSettings
+type Version struct {
+	Created int32 `json:"created,omitempty"`
 }
 
 // Blocks represents the blocks property of an IndexSettings

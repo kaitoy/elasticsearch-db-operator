@@ -70,6 +70,14 @@ spec:
                               type: string
                           type: object
                       type: object
+                    uuid:
+                      type: string
+                    version:
+                      properties:
+                        created:
+                          format: int32
+                          type: integer
+                      type: object
                   type: object
               required:
               - index
