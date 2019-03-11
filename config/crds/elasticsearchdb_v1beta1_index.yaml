@@ -47,13 +47,16 @@ spec:
                       type: object
                     codec:
                       type: string
+                    highlight:
+                      type: object
                     mapping:
                       properties:
                         depth:
                           properties:
                             limit:
-                              format: int32
-                              type: integer
+                              oneOf:
+                              - type: string
+                              - type: integer
                           type: object
                       type: object
                     routing:
@@ -74,8 +77,9 @@ spec:
                     version:
                       properties:
                         created:
-                          format: int32
-                          type: integer
+                          oneOf:
+                          - type: string
+                          - type: integer
                       type: object
                   type: object
               required:

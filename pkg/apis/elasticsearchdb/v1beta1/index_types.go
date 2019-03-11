@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // IndexSpec defines the desired state of Index
@@ -45,12 +46,12 @@ type Filter struct {
 
 // Range type represents a range of a filter
 type Range struct {
-	Gt       metav1.Time `json:"gt,omitempty"`
-	Lt       metav1.Time `json:"lt,omitempty"`
-	Gte      metav1.Time `json:"gte,omitempty"`
-	Lte      metav1.Time `json:"lte,omitempty"`
-	Format   string      `json:"format,omitempty"`
-	TimeZone string      `json:"time_zone,omitempty"`
+	Gt       *metav1.Time `json:"gt,omitempty"`
+	Lt       *metav1.Time `json:"lt,omitempty"`
+	Gte      *metav1.Time `json:"gte,omitempty"`
+	Lte      *metav1.Time `json:"lte,omitempty"`
+	Format   string       `json:"format,omitempty"`
+	TimeZone string       `json:"time_zone,omitempty"`
 }
 
 // Settings type represents settings of an index
@@ -61,37 +62,37 @@ type Settings struct {
 
 // IndexSettings represents the index property of Settings
 type IndexSettings struct {
-	CreationDate            int64            `json:"creation_date,omitempty"`
-	UUID                    string           `json:"uuid,omitempty"`
-	Version                 *Version         `json:"version,omitempty"`
-	ProvidedName            string           `json:"provided_name,omitempty"`
-	NumberOfShards          int32            `json:"number_of_shards,omitempty"`
-	NumberOfReplicas        int32            `json:"number_of_replicas,omitempty"`
-	Codec                   string           `json:"codec,omitempty"`
-	RoutingPartitionSize    int32            `json:"routing_partition_size,omitempty"`
-	AutoExpandReplicas      string           `json:"auto_expand_replicas,omitempty"`
-	RefreshInterval         string           `json:"refresh_interval,omitempty"`
-	MaxResultWindow         int32            `json:"max_result_window,omitempty"`
-	MaxInnerResultWindow    int32            `json:"max_inner_result_window,omitempty"`
-	MaxRescoreWindow        int32            `json:"max_rescore_window,omitempty"`
-	MaxDocvalueFieldsSearch int32            `json:"max_docvalue_fields_search,omitempty"`
-	MaxScriptFields         int32            `json:"max_script_fields,omitempty"`
-	MaxNgramDiff            int32            `json:"max_ngram_diff,omitempty"`
-	MaxShingleDiff          int32            `json:"max_shingle_diff,omitempty"`
-	Blocks                  *Blocks          `json:"blocks,omitempty"`
-	MaxRefreshListeners     int32            `json:"max_refresh_listeners,omitempty"`
-	MaxAnalyzedOffset       int32            `json:"max_analyzed_offset,omitempty"`
-	MaxTermsCount           int32            `json:"max_terms_count,omitempty"`
-	Routing                 *RoutingSetting  `json:"routing,omitempty"`
-	GCDeletes               *metav1.Duration `json:"gc_deletes,omitempty"`
-	MaxRegexLength          int32            `json:"max_regex_length,omitempty"`
-	DefaultPipeline         string           `json:"default_pipeline,omitempty"`
-	Mapping                 *MappingSetting  `json:"mapping,omitempty"`
+	CreationDate            *intstr.IntOrString `json:"creation_date,omitempty"`
+	UUID                    string              `json:"uuid,omitempty"`
+	Version                 *Version            `json:"version,omitempty"`
+	ProvidedName            string              `json:"provided_name,omitempty"`
+	NumberOfShards          *intstr.IntOrString `json:"number_of_shards,omitempty"`
+	NumberOfReplicas        *intstr.IntOrString `json:"number_of_replicas,omitempty"`
+	Codec                   string              `json:"codec,omitempty"`
+	RoutingPartitionSize    *intstr.IntOrString `json:"routing_partition_size,omitempty"`
+	AutoExpandReplicas      string              `json:"auto_expand_replicas,omitempty"`
+	RefreshInterval         string              `json:"refresh_interval,omitempty"`
+	MaxResultWindow         *intstr.IntOrString `json:"max_result_window,omitempty"`
+	MaxInnerResultWindow    *intstr.IntOrString `json:"max_inner_result_window,omitempty"`
+	MaxRescoreWindow        *intstr.IntOrString `json:"max_rescore_window,omitempty"`
+	MaxDocvalueFieldsSearch *intstr.IntOrString `json:"max_docvalue_fields_search,omitempty"`
+	MaxScriptFields         *intstr.IntOrString `json:"max_script_fields,omitempty"`
+	MaxNgramDiff            *intstr.IntOrString `json:"max_ngram_diff,omitempty"`
+	MaxShingleDiff          *intstr.IntOrString `json:"max_shingle_diff,omitempty"`
+	Blocks                  *Blocks             `json:"blocks,omitempty"`
+	MaxRefreshListeners     *intstr.IntOrString `json:"max_refresh_listeners,omitempty"`
+	Highlight               *Highlight          `json:"highlight,omitempty"`
+	MaxTermsCount           *intstr.IntOrString `json:"max_terms_count,omitempty"`
+	Routing                 *RoutingSetting     `json:"routing,omitempty"`
+	GCDeletes               *metav1.Duration    `json:"gc_deletes,omitempty"`
+	MaxRegexLength          *intstr.IntOrString `json:"max_regex_length,omitempty"`
+	DefaultPipeline         string              `json:"default_pipeline,omitempty"`
+	Mapping                 *MappingSetting     `json:"mapping,omitempty"`
 }
 
 // Version represents the version property of an IndexSettings
 type Version struct {
-	Created int32 `json:"created,omitempty"`
+	Created *intstr.IntOrString `json:"created,omitempty"`
 }
 
 // Blocks represents the blocks property of an IndexSettings
@@ -101,6 +102,11 @@ type Blocks struct {
 	Read                bool `json:"read,omitempty"`
 	Write               bool `json:"write,omitempty"`
 	Metadata            bool `json:"metadata,omitempty"`
+}
+
+// Highlight represents the highlight property of an IndexSettings
+type Highlight struct {
+	MaxAnalyzedOffset *intstr.IntOrString `json:"max_analyzed_offset,omitempty"`
 }
 
 // RoutingSetting represents the routing property of an IndexSettings
@@ -128,17 +134,17 @@ type MappingSetting struct {
 
 // TotalFields represents the total_fields property of a MappingSetting
 type TotalFields struct {
-	Limit int32 `json:"limit,omitempty"`
+	Limit *intstr.IntOrString `json:"limit,omitempty"`
 }
 
 // Depth represents the depth property of a MappingSetting
 type Depth struct {
-	Limit int32 `json:"limit,omitempty"`
+	Limit *intstr.IntOrString `json:"limit,omitempty"`
 }
 
 // NestedFields represents the total_fields property of a MappingSetting
 type NestedFields struct {
-	Limit int32 `json:"limit,omitempty"`
+	Limit *intstr.IntOrString `json:"limit,omitempty"`
 }
 
 // Mapping represents a mapping

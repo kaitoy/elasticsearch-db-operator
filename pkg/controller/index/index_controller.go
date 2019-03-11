@@ -155,7 +155,7 @@ func (r *ReconcileIndex) Reconcile(request reconcile.Request) (reconcile.Result,
 				SetBody(instance.Spec).
 				Put(endpoint.String())
 			if err != nil {
-				log.Error(err, "Failed to PUT"+endpoint.String())
+				log.Error(err, "Failed to PUT "+endpoint.String())
 				if err := r.Update(context.Background(), instance); err != nil {
 					log.Error(err, "Failed to update "+instanceName)
 					return reconcile.Result{}, err
@@ -213,7 +213,7 @@ func (r *ReconcileIndex) Reconcile(request reconcile.Request) (reconcile.Result,
 			response, err := resty.R().
 				Delete(endpoint.String())
 			if err != nil {
-				log.Error(err, "Failed to Delete"+endpoint.String())
+				log.Error(err, "Failed to DELETE "+endpoint.String())
 				return reconcile.Result{}, err
 			}
 			if response.IsError() {

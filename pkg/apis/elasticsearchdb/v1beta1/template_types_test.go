@@ -23,6 +23,7 @@ import (
 	"golang.org/x/net/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func TestStorageTemplate(t *testing.T) {
@@ -45,8 +46,8 @@ func TestStorageTemplate(t *testing.T) {
 			},
 			Settings: &Settings{
 				Index: IndexSettings{
-					NumberOfShards:   10,
-					NumberOfReplicas: 2,
+					NumberOfShards:   &intstr.IntOrString{Type: 0, IntVal: 10, StrVal: ""},
+					NumberOfReplicas: &intstr.IntOrString{Type: 0, IntVal: 2, StrVal: ""},
 				},
 			},
 			Order:   10,

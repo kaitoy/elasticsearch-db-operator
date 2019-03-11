@@ -27,6 +27,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -53,8 +54,8 @@ func TestReconcile(t *testing.T) {
 			},
 			Settings: &elasticsearchdbv1beta1.Settings{
 				Index: elasticsearchdbv1beta1.IndexSettings{
-					NumberOfShards:   10,
-					NumberOfReplicas: 2,
+					NumberOfShards:   &intstr.IntOrString{Type: 0, IntVal: 10, StrVal: ""},
+					NumberOfReplicas: &intstr.IntOrString{Type: 0, IntVal: 2, StrVal: ""},
 				},
 			},
 			Order:   10,
