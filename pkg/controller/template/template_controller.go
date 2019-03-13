@@ -21,10 +21,10 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"net/url"
-	"reflect"
 	"strings"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	elasticsearchdbv1beta1 "github.com/kaitoy/elasticsearch-db-operator/pkg/apis/elasticsearchdb/v1beta1"
 	utilsstrings "github.com/kaitoy/elasticsearch-db-operator/pkg/controller/utils"
 	resty "gopkg.in/resty.v1"
@@ -33,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -359,7 +360,6 @@ func doWatchIndices(url *url.URL, template *elasticsearchdbv1beta1.Template, r *
 		return err
 	}
 
-	log.Info(fmt.Sprintf("%v", response.Result()))
 	if len(*response.Result().(*map[string]elasticsearchdbv1beta1.IndexSpec)) == 0 {
 		return nil
 	}
@@ -421,7 +421,7 @@ func createOrUpdateIndex(
 	}
 
 	// Update the found object and write the result back if there are any changes
-	if !reflect.DeepEqual(index.Spec, found.Spec) {
+	if !cmp.Equal(index.Spec, found.Spec, cmp.Comparer(intOrStringComparer)) {
 		found.Spec = index.Spec
 		log.Info(fmt.Sprintf("Updating an Index: %s/%s", index.Namespace, index.Name))
 		if err := r.Update(context.TODO(), found); err != nil {
@@ -431,4 +431,8 @@ func createOrUpdateIndex(
 	}
 
 	return nil
+}
+
+func intOrStringComparer(a *intstr.IntOrString, b *intstr.IntOrString) bool {
+	return a.IntValue() == b.IntValue()
 }
