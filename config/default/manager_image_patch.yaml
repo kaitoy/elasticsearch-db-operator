@@ -7,5 +7,5 @@ spec:
   template:
     spec:
       containers:
-      - image: kaitoy/elasticsearch-db-operator:0.0.1
+      - image: kaitoy/elasticsearch-db-operator:0.1.0
         name: manager
