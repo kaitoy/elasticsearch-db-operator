@@ -1,6 +1,8 @@
 Elasticsearch DB Operator
 =========================
 
+[![Go Report](https://goreportcard.com/badge/kaitoy/elasticsearch-db-operator)](https://goreportcard.com/report/kaitoy/elasticsearch-db-operator)
+
 Elasticsearch DB Operator is a [Kubernetes operator](https://github.com/operator-framework/awesome-operators) built with [Kubebuilder](https://github.com/kubernetes-sigs/kubebuilder), that operates [Elasticsearch](https://www.elastic.co/products/elasticsearch) database (i.e. indices and settings).
 
 Deploy to Kubernetes cluster
