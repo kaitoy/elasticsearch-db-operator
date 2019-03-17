@@ -388,5 +388,11 @@ func createOrUpdateIndex(
 }
 
 func intOrStringComparer(a *intstr.IntOrString, b *intstr.IntOrString) bool {
+	if a == nil {
+		return b == nil
+	}
+	if b == nil {
+		return false
+	}
 	return a.IntValue() == b.IntValue()
 }
