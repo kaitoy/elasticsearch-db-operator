@@ -103,6 +103,13 @@ Usage
 2. Apply the manifest to create the template.
 3. Delete the manifest to delete the template.
 
+Docker Image
+------------
+
+[![](https://images.microbadger.com/badges/version/kaitoy/elasticsearch-db-operator.svg)](https://microbadger.com/images/kaitoy/elasticsearch-db-operator "Get your own version badge on microbadger.com")
+
+[![](https://images.microbadger.com/badges/image/kaitoy/elasticsearch-db-operator.svg)](https://microbadger.com/images/kaitoy/elasticsearch-db-operator "Get your own image badge on microbadger.com")
+
 Development
 -----------
 
