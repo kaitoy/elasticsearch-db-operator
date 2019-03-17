@@ -115,6 +115,7 @@ func (r *ReconcileIndex) Reconcile(request reconcile.Request) (reconcile.Result,
 	const finalizerName = "index.finalizers.elasticsearchdb.kaitoy.github.com"
 	if instance.ObjectMeta.DeletionTimestamp.IsZero() {
 		if !strings.ContainsString(instance.ObjectMeta.Finalizers, finalizerName) {
+			log.Info(fmt.Sprintf("Adding a finalizer to %s.", instanceName))
 			instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, finalizerName)
 		}
 
@@ -187,7 +188,7 @@ func (r *ReconcileIndex) Reconcile(request reconcile.Request) (reconcile.Result,
 				return reconcile.Result{}, err
 			}
 
-			log.Info(fmt.Sprintf("Scceeded to create an index %s.", endpoint.String()))
+			log.Info(fmt.Sprintf("Succeeded to create an index %s.", endpoint.String()))
 		} else {
 			err = fmt.Errorf(
 				"Got an error response '%s' for %s %s",
@@ -210,6 +211,7 @@ func (r *ReconcileIndex) Reconcile(request reconcile.Request) (reconcile.Result,
 	} else {
 		// This instance is being deleted.
 		if strings.ContainsString(instance.ObjectMeta.Finalizers, finalizerName) {
+			log.Info(fmt.Sprintf("Deleting an index %s.", endpoint.String()))
 			response, err := resty.R().
 				Delete(endpoint.String())
 			if err != nil {
@@ -227,7 +229,7 @@ func (r *ReconcileIndex) Reconcile(request reconcile.Request) (reconcile.Result,
 				return reconcile.Result{}, err
 			}
 
-			log.Info(fmt.Sprintf("Scceeded to delete an index %s.", endpoint.String()))
+			log.Info(fmt.Sprintf("Succeeded to delete an index %s.", endpoint.String()))
 
 			instance.ObjectMeta.Finalizers = strings.RemoveString(instance.ObjectMeta.Finalizers, finalizerName)
 			if err := r.Update(context.Background(), instance); err != nil {

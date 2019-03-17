@@ -138,7 +138,11 @@ func (r *ReconcileTemplate) Reconcile(request reconcile.Request) (reconcile.Resu
 	const finalizerName = "template.finalizers.elasticsearchdb.kaitoy.github.com"
 	if instance.ObjectMeta.DeletionTimestamp.IsZero() {
 		if !utilsstrings.ContainsString(instance.ObjectMeta.Finalizers, finalizerName) {
+			log.Info(fmt.Sprintf("Adding a finalizer to %s.", instanceName))
 			instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, finalizerName)
+		}
+		if _, ok := r.indicesWatchingCancellers[instanceName]; !ok {
+			log.Info(fmt.Sprintf("Starting to watch indices for a template %s.", instanceName))
 			ctx, cancel := context.WithCancel(context.Background())
 			r.indicesWatchingCancellers[instanceName] = cancel
 			go watchIndices(ctx, instance, r)
@@ -213,7 +217,7 @@ func (r *ReconcileTemplate) Reconcile(request reconcile.Request) (reconcile.Resu
 				return reconcile.Result{}, err
 			}
 
-			log.Info(fmt.Sprintf("Scceeded to create a template %s.", endpoint.String()))
+			log.Info(fmt.Sprintf("Succeeded to create a template %s.", endpoint.String()))
 		} else {
 			err = fmt.Errorf(
 				"Got an error response '%s' for %s %s",
@@ -234,14 +238,17 @@ func (r *ReconcileTemplate) Reconcile(request reconcile.Request) (reconcile.Resu
 			return reconcile.Result{}, err
 		}
 	} else {
+		// This instance is being deleted.
+
 		cancel, ok := r.indicesWatchingCancellers[instanceName]
 		if ok {
+			log.Info(fmt.Sprintf("Canceling to watch indices for a template %s.", instanceName))
 			cancel()
 			delete(r.indicesWatchingCancellers, instanceName)
 		}
 
-		// This instance is being deleted.
 		if utilsstrings.ContainsString(instance.ObjectMeta.Finalizers, finalizerName) {
+			log.Info(fmt.Sprintf("Deleting a template %s.", endpoint.String()))
 			response, err := resty.R().
 				Delete(endpoint.String())
 			if err != nil {
@@ -259,7 +266,7 @@ func (r *ReconcileTemplate) Reconcile(request reconcile.Request) (reconcile.Resu
 				return reconcile.Result{}, err
 			}
 
-			log.Info(fmt.Sprintf("Scceeded to delete a template %s.", endpoint.String()))
+			log.Info(fmt.Sprintf("Succeeded to delete a template %s.", endpoint.String()))
 
 			instance.ObjectMeta.Finalizers = utilsstrings.RemoveString(instance.ObjectMeta.Finalizers, finalizerName)
 			if err := r.Update(context.Background(), instance); err != nil {
