@@ -138,10 +138,17 @@ func (r *ReconcileIndex) Reconcile(request reconcile.Request) (reconcile.Result,
 						LastTransitionTime: metav1.NewTime(response.ReceivedAt()),
 					},
 				)
-			} else {
-				log.Info(fmt.Sprintf("Nothing to do for %s.", instanceName))
-				return reconcile.Result{}, nil
 			}
+		} else {
+			instance.Status.Conditions = append(
+				instance.Status.Conditions,
+				elasticsearchdbv1beta1.IndexCondition{
+					StatusCode:         response.StatusCode(),
+					Status:             response.Status(),
+					LastProbeTime:      metav1.NewTime(response.Request.Time),
+					LastTransitionTime: metav1.NewTime(response.ReceivedAt()),
+				},
+			)
 		}
 
 		if response.IsSuccess() {
