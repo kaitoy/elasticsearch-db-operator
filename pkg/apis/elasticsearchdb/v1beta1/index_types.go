@@ -24,8 +24,8 @@ import (
 // IndexSpec defines the desired state of Index
 // https://www.elastic.co/guide/en/elasticsearch/reference/current/index-modules.html
 type IndexSpec struct {
-	Aliases  map[string]Alias   `json:"aliases,omitempty"`
-	Settings *Settings          `json:"settings,omitempty"`
+	Aliases  map[string]Alias   `json:"aliases"`
+	Settings *Settings          `json:"settings"`
 	Mappings map[string]Mapping `json:"mappings"`
 }
 

@@ -377,9 +377,20 @@ func createOrUpdateIndex(
 	}
 
 	// Update the found object and write the result back if there are any changes
-	if !cmp.Equal(index.Spec, found.Spec, cmp.Comparer(intOrStringComparer)) {
+	if !cmp.Equal(
+		index.Spec, found.Spec,
+		cmp.Comparer(intOrStringComparer),
+	) {
+		log.Info(fmt.Sprintf(
+			"Updating an Index %s/%s to eliminate a difference from actual one: %s",
+			index.Namespace,
+			index.Name,
+			cmp.Diff(
+				index.Spec, found.Spec,
+				cmp.Comparer(intOrStringComparer),
+			),
+		))
 		found.Spec = index.Spec
-		log.Info(fmt.Sprintf("Updating an Index: %s/%s", index.Namespace, index.Name))
 		if err := r.Update(context.TODO(), found); err != nil {
 			log.Error(err, fmt.Sprintf("Failed to update an Index: %s/%s", index.Namespace, index.Name))
 			return err

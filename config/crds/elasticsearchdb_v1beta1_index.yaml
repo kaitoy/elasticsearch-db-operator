@@ -86,6 +86,8 @@ spec:
               - index
               type: object
           required:
+          - aliases
+          - settings
           - mappings
           type: object
         status:
