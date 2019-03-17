@@ -369,6 +369,8 @@ func createOrUpdateIndex(
 			log.Error(err, fmt.Sprintf("Failed to create an Index: %s/%s", index.Namespace, index.Name))
 			return err
 		}
+
+		return nil
 	} else if err != nil {
 		log.Error(err, fmt.Sprintf("Failed to get an Index: %s/%s", index.Namespace, index.Name))
 		return err
