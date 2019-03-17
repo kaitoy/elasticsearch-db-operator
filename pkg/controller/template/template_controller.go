@@ -44,7 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-const controllerName = "elasticsearchdb-index-operator"
+const controllerName = "elasticsearchdb-template-operator"
 
 var log = logf.Log.WithName(controllerName)
 
