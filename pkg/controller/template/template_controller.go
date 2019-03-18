@@ -28,7 +28,6 @@ import (
 	elasticsearchdbv1beta1 "github.com/kaitoy/elasticsearch-db-operator/pkg/apis/elasticsearchdb/v1beta1"
 	utilsstrings "github.com/kaitoy/elasticsearch-db-operator/pkg/utils"
 	resty "gopkg.in/resty.v1"
-	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -80,15 +79,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// Watch for changes to Template
 	err = c.Watch(&source.Kind{Type: &elasticsearchdbv1beta1.Template{}}, &handler.EnqueueRequestForObject{})
-	if err != nil {
-		return err
-	}
-
-	// Uncomment watch a Deployment created by Template - change this for objects you create
-	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &elasticsearchdbv1beta1.Template{},
-	})
 	if err != nil {
 		return err
 	}
@@ -343,7 +333,6 @@ func createOrUpdateIndex(
 		return err
 	}
 
-	// Check if the Deployment already exists
 	found := &elasticsearchdbv1beta1.Index{}
 	err := r.Get(context.TODO(), types.NamespacedName{Name: index.Name, Namespace: index.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
