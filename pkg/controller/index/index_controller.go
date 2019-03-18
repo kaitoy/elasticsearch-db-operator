@@ -129,26 +129,10 @@ func (r *ReconcileIndex) Reconcile(request reconcile.Request) (reconcile.Result,
 		if len(instance.Status.Conditions) > 0 {
 			lastCond := instance.Status.Conditions[len(instance.Status.Conditions)-1]
 			if lastCond.StatusCode != response.StatusCode() || lastCond.Status != response.Status() {
-				instance.Status.Conditions = append(
-					instance.Status.Conditions,
-					elasticsearchdbv1beta1.IndexCondition{
-						StatusCode:         response.StatusCode(),
-						Status:             response.Status(),
-						LastProbeTime:      metav1.NewTime(response.Request.Time),
-						LastTransitionTime: metav1.NewTime(response.ReceivedAt()),
-					},
-				)
+				appendCondition(instance, response)
 			}
 		} else {
-			instance.Status.Conditions = append(
-				instance.Status.Conditions,
-				elasticsearchdbv1beta1.IndexCondition{
-					StatusCode:         response.StatusCode(),
-					Status:             response.Status(),
-					LastProbeTime:      metav1.NewTime(response.Request.Time),
-					LastTransitionTime: metav1.NewTime(response.ReceivedAt()),
-				},
-			)
+			appendCondition(instance, response)
 		}
 
 		if response.IsSuccess() {
@@ -170,15 +154,7 @@ func (r *ReconcileIndex) Reconcile(request reconcile.Request) (reconcile.Result,
 				}
 				return reconcile.Result{}, err
 			}
-			instance.Status.Conditions = append(
-				instance.Status.Conditions,
-				elasticsearchdbv1beta1.IndexCondition{
-					StatusCode:         response.StatusCode(),
-					Status:             response.Status(),
-					LastProbeTime:      metav1.NewTime(response.Request.Time),
-					LastTransitionTime: metav1.NewTime(response.ReceivedAt()),
-				},
-			)
+			appendCondition(instance, response)
 
 			if response.IsError() {
 				err = fmt.Errorf(
@@ -246,4 +222,16 @@ func (r *ReconcileIndex) Reconcile(request reconcile.Request) (reconcile.Result,
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func appendCondition(index *elasticsearchdbv1beta1.Index, response *resty.Response) {
+	index.Status.Conditions = append(
+		index.Status.Conditions,
+		elasticsearchdbv1beta1.IndexCondition{
+			StatusCode:         response.StatusCode(),
+			Status:             response.Status(),
+			LastProbeTime:      metav1.NewTime(response.Request.Time),
+			LastTransitionTime: metav1.NewTime(response.ReceivedAt()),
+		},
+	)
 }

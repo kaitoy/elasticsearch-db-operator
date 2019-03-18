@@ -158,26 +158,10 @@ func (r *ReconcileTemplate) Reconcile(request reconcile.Request) (reconcile.Resu
 		if len(instance.Status.Conditions) > 0 {
 			lastCond := instance.Status.Conditions[len(instance.Status.Conditions)-1]
 			if lastCond.StatusCode != response.StatusCode() || lastCond.Status != response.Status() {
-				instance.Status.Conditions = append(
-					instance.Status.Conditions,
-					elasticsearchdbv1beta1.TemplateCondition{
-						StatusCode:         response.StatusCode(),
-						Status:             response.Status(),
-						LastProbeTime:      metav1.NewTime(response.Request.Time),
-						LastTransitionTime: metav1.NewTime(response.ReceivedAt()),
-					},
-				)
+				appendCondition(instance, response)
 			}
 		} else {
-			instance.Status.Conditions = append(
-				instance.Status.Conditions,
-				elasticsearchdbv1beta1.TemplateCondition{
-					StatusCode:         response.StatusCode(),
-					Status:             response.Status(),
-					LastProbeTime:      metav1.NewTime(response.Request.Time),
-					LastTransitionTime: metav1.NewTime(response.ReceivedAt()),
-				},
-			)
+			appendCondition(instance, response)
 		}
 
 		if response.IsSuccess() {
@@ -199,15 +183,7 @@ func (r *ReconcileTemplate) Reconcile(request reconcile.Request) (reconcile.Resu
 				}
 				return reconcile.Result{}, err
 			}
-			instance.Status.Conditions = append(
-				instance.Status.Conditions,
-				elasticsearchdbv1beta1.TemplateCondition{
-					StatusCode:         response.StatusCode(),
-					Status:             response.Status(),
-					LastProbeTime:      metav1.NewTime(response.Request.Time),
-					LastTransitionTime: metav1.NewTime(response.ReceivedAt()),
-				},
-			)
+			appendCondition(instance, response)
 
 			if response.IsError() {
 				err = fmt.Errorf(
@@ -415,4 +391,16 @@ func intOrStringComparer(a *intstr.IntOrString, b *intstr.IntOrString) bool {
 		return false
 	}
 	return a.IntValue() == b.IntValue()
+}
+
+func appendCondition(templ *elasticsearchdbv1beta1.Template, response *resty.Response) {
+	templ.Status.Conditions = append(
+		templ.Status.Conditions,
+		elasticsearchdbv1beta1.TemplateCondition{
+			StatusCode:         response.StatusCode(),
+			Status:             response.Status(),
+			LastProbeTime:      metav1.NewTime(response.Request.Time),
+			LastTransitionTime: metav1.NewTime(response.ReceivedAt()),
+		},
+	)
 }
