@@ -26,7 +26,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	elasticsearchdbv1beta1 "github.com/kaitoy/elasticsearch-db-operator/pkg/apis/elasticsearchdb/v1beta1"
-	utilsstrings "github.com/kaitoy/elasticsearch-db-operator/pkg/controller/utils"
+	utilsstrings "github.com/kaitoy/elasticsearch-db-operator/pkg/utils"
 	resty "gopkg.in/resty.v1"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"

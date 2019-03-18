@@ -23,7 +23,7 @@ import (
 	"time"
 
 	elasticsearchdbv1beta1 "github.com/kaitoy/elasticsearch-db-operator/pkg/apis/elasticsearchdb/v1beta1"
-	strings "github.com/kaitoy/elasticsearch-db-operator/pkg/controller/utils"
+	utilsstrings "github.com/kaitoy/elasticsearch-db-operator/pkg/utils"
 	resty "gopkg.in/resty.v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -114,7 +114,7 @@ func (r *ReconcileIndex) Reconcile(request reconcile.Request) (reconcile.Result,
 
 	const finalizerName = "index.finalizers.elasticsearchdb.kaitoy.github.com"
 	if instance.ObjectMeta.DeletionTimestamp.IsZero() {
-		if !strings.ContainsString(instance.ObjectMeta.Finalizers, finalizerName) {
+		if !utilsstrings.ContainsString(instance.ObjectMeta.Finalizers, finalizerName) {
 			log.Info(fmt.Sprintf("Adding a finalizer to %s.", instanceName))
 			instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, finalizerName)
 		}
@@ -217,7 +217,7 @@ func (r *ReconcileIndex) Reconcile(request reconcile.Request) (reconcile.Result,
 		}
 	} else {
 		// This instance is being deleted.
-		if strings.ContainsString(instance.ObjectMeta.Finalizers, finalizerName) {
+		if utilsstrings.ContainsString(instance.ObjectMeta.Finalizers, finalizerName) {
 			log.Info(fmt.Sprintf("Deleting an index %s.", endpoint.String()))
 			response, err := resty.R().
 				Delete(endpoint.String())
@@ -238,7 +238,7 @@ func (r *ReconcileIndex) Reconcile(request reconcile.Request) (reconcile.Result,
 
 			log.Info(fmt.Sprintf("Succeeded to delete an index %s.", endpoint.String()))
 
-			instance.ObjectMeta.Finalizers = strings.RemoveString(instance.ObjectMeta.Finalizers, finalizerName)
+			instance.ObjectMeta.Finalizers = utilsstrings.RemoveString(instance.ObjectMeta.Finalizers, finalizerName)
 			if err := r.Update(context.Background(), instance); err != nil {
 				return reconcile.Result{}, err
 			}
