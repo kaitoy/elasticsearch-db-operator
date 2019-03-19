@@ -21,7 +21,6 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -95,6 +94,8 @@ type ReconcileTemplate struct {
 	indicesWatchingCancellers map[string]context.CancelFunc
 }
 
+const finalizerName = "template.finalizers.elasticsearchdb.kaitoy.github.com"
+
 // Reconcile reads that state of the cluster for a Template object and makes changes based on the state read
 // and what is in the Template.Spec
 // +kubebuilder:rbac:groups=elasticsearchdb.kaitoy.github.com,resources=indices,verbs=get;list;watch;create;update;patch;delete
@@ -117,143 +118,116 @@ func (r *ReconcileTemplate) Reconcile(request reconcile.Request) (reconcile.Resu
 		return reconcile.Result{}, err
 	}
 
-	endpoint, err := url.Parse(instance.URL.ElasticsearchEndpoint)
-	if err != nil {
-		log.Error(err, "Invalid url: "+instance.URL.ElasticsearchEndpoint)
+	if instance.ObjectMeta.DeletionTimestamp.IsZero() {
+		err := reconcileCreationOrUpdate(instance, r)
 		return reconcile.Result{}, err
 	}
-	endpoint.Path = "/_template/" + instance.URL.Template
-	log.Info("Operating a template: " + endpoint.String())
+	err = reconcileDeletion(instance, r)
+	return reconcile.Result{}, err
+}
 
-	const finalizerName = "template.finalizers.elasticsearchdb.kaitoy.github.com"
-	if instance.ObjectMeta.DeletionTimestamp.IsZero() {
-		if !utilsstrings.ContainsString(instance.ObjectMeta.Finalizers, finalizerName) {
-			log.Info(fmt.Sprintf("Adding a finalizer to %s.", instanceName))
-			instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, finalizerName)
-		}
-		if _, ok := r.indicesWatchingCancellers[instanceName]; !ok {
-			log.Info(fmt.Sprintf("Starting to watch indices for a template %s.", instanceName))
-			ctx, cancel := context.WithCancel(context.Background())
-			r.indicesWatchingCancellers[instanceName] = cancel
-			go watchIndices(ctx, instance, r)
-		}
+func reconcileCreationOrUpdate(template *elasticsearchdbv1beta1.Template, r *ReconcileTemplate) error {
+	instanceName := types.NamespacedName{Name: template.Name, Namespace: template.Namespace}.String()
+	templateURL, err := template.GetURL()
+	if err != nil {
+		log.Error(err, "Failed to get URL of "+instanceName)
+		return err
+	}
 
-		response, err := resty.R().
-			Get(endpoint.String())
+	if !utilsstrings.ContainsString(template.ObjectMeta.Finalizers, finalizerName) {
+		log.Info(fmt.Sprintf("Adding a finalizer to %s.", instanceName))
+		template.ObjectMeta.Finalizers = append(template.ObjectMeta.Finalizers, finalizerName)
+	}
+	if _, ok := r.indicesWatchingCancellers[instanceName]; !ok {
+		log.Info(fmt.Sprintf("Starting to watch indices for a template %s.", instanceName))
+		ctx, cancel := context.WithCancel(context.Background())
+		r.indicesWatchingCancellers[instanceName] = cancel
+		go watchIndices(ctx, template, r)
+	}
+
+	response, err := resty.R().
+		Get(templateURL.String())
+	if err != nil {
+		log.Error(err, "Failed to GET "+templateURL.String())
+		return err
+	}
+
+	if len(template.Status.Conditions) > 0 {
+		lastCond := template.Status.Conditions[len(template.Status.Conditions)-1]
+		if lastCond.StatusCode != response.StatusCode() || lastCond.Status != response.Status() {
+			appendCondition(template, response)
+		}
+	} else {
+		appendCondition(template, response)
+	}
+
+	if response.IsSuccess() {
+		log.Info(fmt.Sprintf("Template %s exists.", templateURL.String()))
+		if err := r.Update(context.Background(), template); err != nil {
+			log.Error(err, "Failed to update "+instanceName)
+			return err
+		}
+		return nil
+	} else if response.StatusCode() == 404 {
+		response, err = resty.R().
+			SetBody(template.Spec).
+			Put(templateURL.String())
 		if err != nil {
-			log.Error(err, "Failed to GET "+endpoint.String())
-			return reconcile.Result{}, err
-		}
-
-		if len(instance.Status.Conditions) > 0 {
-			lastCond := instance.Status.Conditions[len(instance.Status.Conditions)-1]
-			if lastCond.StatusCode != response.StatusCode() || lastCond.Status != response.Status() {
-				appendCondition(instance, response)
-			}
-		} else {
-			appendCondition(instance, response)
-		}
-
-		if response.IsSuccess() {
-			log.Info(fmt.Sprintf("Template %s exists.", endpoint.String()))
-			if err := r.Update(context.Background(), instance); err != nil {
+			log.Error(err, "Failed to PUT "+templateURL.String())
+			if err := r.Update(context.Background(), template); err != nil {
 				log.Error(err, "Failed to update "+instanceName)
-				return reconcile.Result{}, err
+				return err
 			}
-			return reconcile.Result{}, nil
-		} else if response.StatusCode() == 404 {
-			response, err = resty.R().
-				SetBody(instance.Spec).
-				Put(endpoint.String())
-			if err != nil {
-				log.Error(err, "Failed to PUT "+endpoint.String())
-				if err := r.Update(context.Background(), instance); err != nil {
-					log.Error(err, "Failed to update "+instanceName)
-					return reconcile.Result{}, err
-				}
-				return reconcile.Result{}, err
-			}
-			appendCondition(instance, response)
+			return err
+		}
+		appendCondition(template, response)
 
-			if response.IsError() {
-				err = fmt.Errorf(
-					"Got an error response '%s' for %s %s",
-					response.Status(),
-					response.Request.Method,
-					response.Request.URL,
-				)
-				log.Error(err, "An error occurred during creating a template "+endpoint.String())
-				if err := r.Update(context.Background(), instance); err != nil {
-					log.Error(err, "Failed to update "+instanceName)
-					return reconcile.Result{}, err
-				}
-				return reconcile.Result{}, err
-			}
-
-			log.Info(fmt.Sprintf("Succeeded to create a template %s.", endpoint.String()))
-		} else {
+		if response.IsError() {
 			err = fmt.Errorf(
 				"Got an error response '%s' for %s %s",
 				response.Status(),
 				response.Request.Method,
 				response.Request.URL,
 			)
-			log.Error(err, "An error occurred during getting a template "+endpoint.String())
-			if err := r.Update(context.Background(), instance); err != nil {
+			log.Error(err, "An error occurred during creating a template "+templateURL.String())
+			if err := r.Update(context.Background(), template); err != nil {
 				log.Error(err, "Failed to update "+instanceName)
-				return reconcile.Result{}, err
+				return err
 			}
-			return reconcile.Result{}, err
+			return err
 		}
 
-		if err := r.Update(context.Background(), instance); err != nil {
-			log.Error(err, "Failed to update "+instanceName)
-			return reconcile.Result{}, err
-		}
+		log.Info(fmt.Sprintf("Succeeded to create a template %s.", templateURL.String()))
 	} else {
-		// This instance is being deleted.
-
-		cancel, ok := r.indicesWatchingCancellers[instanceName]
-		if ok {
-			log.Info(fmt.Sprintf("Canceling to watch indices for a template %s.", instanceName))
-			cancel()
-			delete(r.indicesWatchingCancellers, instanceName)
+		err = fmt.Errorf(
+			"Got an error response '%s' for %s %s",
+			response.Status(),
+			response.Request.Method,
+			response.Request.URL,
+		)
+		log.Error(err, "An error occurred during getting a template "+templateURL.String())
+		if err := r.Update(context.Background(), template); err != nil {
+			log.Error(err, "Failed to update "+instanceName)
+			return err
 		}
-
-		if utilsstrings.ContainsString(instance.ObjectMeta.Finalizers, finalizerName) {
-			log.Info(fmt.Sprintf("Deleting a template %s.", endpoint.String()))
-			response, err := resty.R().
-				Delete(endpoint.String())
-			if err != nil {
-				log.Error(err, "Failed to DELETE "+endpoint.String())
-				return reconcile.Result{}, err
-			}
-			if response.IsError() {
-				err = fmt.Errorf(
-					"Got an error response '%s' for %s %s",
-					response.Status(),
-					response.Request.Method,
-					response.Request.URL,
-				)
-				log.Error(err, "An error occurred during deleting a template "+endpoint.String())
-				return reconcile.Result{}, err
-			}
-
-			log.Info(fmt.Sprintf("Succeeded to delete a template %s.", endpoint.String()))
-
-			instance.ObjectMeta.Finalizers = utilsstrings.RemoveString(instance.ObjectMeta.Finalizers, finalizerName)
-			if err := r.Update(context.Background(), instance); err != nil {
-				return reconcile.Result{}, err
-			}
-		}
+		return err
 	}
 
-	return reconcile.Result{}, nil
+	if err := r.Update(context.Background(), template); err != nil {
+		log.Error(err, "Failed to update "+instanceName)
+		return err
+	}
+
+	return nil
 }
 
 func watchIndices(ctx context.Context, template *elasticsearchdbv1beta1.Template, r *ReconcileTemplate) {
-	indicesURL, _ := url.Parse(template.URL.ElasticsearchEndpoint)
-	indicesURL.Path = strings.Join(template.Spec.IndexPatterns, ",")
+	instanceName := types.NamespacedName{Name: template.Name, Namespace: template.Namespace}.String()
+	indicesURL, err := template.GetIndicesURL()
+	if err != nil {
+		log.Error(err, fmt.Sprintf("Failed to get indices URL of %s. Can't start to watch the indices.", instanceName))
+		return
+	}
 
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
@@ -262,17 +236,17 @@ func watchIndices(ctx context.Context, template *elasticsearchdbv1beta1.Template
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			doWatchIndices(indicesURL, template, r)
+			pollIndices(indicesURL, template, r)
 		}
 	}
 }
 
-func doWatchIndices(url *url.URL, template *elasticsearchdbv1beta1.Template, r *ReconcileTemplate) error {
+func pollIndices(indicesURL *url.URL, template *elasticsearchdbv1beta1.Template, r *ReconcileTemplate) error {
 	response, err := resty.R().
 		SetResult(&map[string]elasticsearchdbv1beta1.IndexSpec{}).
-		Get(url.String())
+		Get(indicesURL.String())
 	if err != nil {
-		log.Error(err, "Failed to GET "+url.String())
+		log.Error(err, "Failed to GET "+indicesURL.String())
 		return err
 	}
 
@@ -283,7 +257,7 @@ func doWatchIndices(url *url.URL, template *elasticsearchdbv1beta1.Template, r *
 			response.Request.Method,
 			response.Request.URL,
 		)
-		log.Error(err, "An error occurred during getting indices "+url.String())
+		log.Error(err, "An error occurred during getting indices "+indicesURL.String())
 		return err
 	}
 
@@ -380,6 +354,51 @@ func intOrStringComparer(a *intstr.IntOrString, b *intstr.IntOrString) bool {
 		return false
 	}
 	return a.IntValue() == b.IntValue()
+}
+
+func reconcileDeletion(template *elasticsearchdbv1beta1.Template, r *ReconcileTemplate) error {
+	instanceName := types.NamespacedName{Name: template.Name, Namespace: template.Namespace}.String()
+	templateURL, err := template.GetURL()
+	if err != nil {
+		log.Error(err, "Failed to get URL of "+instanceName)
+		return err
+	}
+
+	cancel, ok := r.indicesWatchingCancellers[instanceName]
+	if ok {
+		log.Info(fmt.Sprintf("Stopping watching indices for a template %s.", instanceName))
+		cancel()
+		delete(r.indicesWatchingCancellers, instanceName)
+	}
+
+	if utilsstrings.ContainsString(template.ObjectMeta.Finalizers, finalizerName) {
+		log.Info(fmt.Sprintf("Deleting a template %s.", templateURL.String()))
+		response, err := resty.R().
+			Delete(templateURL.String())
+		if err != nil {
+			log.Error(err, "Failed to DELETE "+templateURL.String())
+			return err
+		}
+		if response.IsError() {
+			err = fmt.Errorf(
+				"Got an error response '%s' for %s %s",
+				response.Status(),
+				response.Request.Method,
+				response.Request.URL,
+			)
+			log.Error(err, "An error occurred during deleting a template "+templateURL.String())
+			return err
+		}
+
+		log.Info(fmt.Sprintf("Succeeded to delete a template %s.", templateURL.String()))
+
+		template.ObjectMeta.Finalizers = utilsstrings.RemoveString(template.ObjectMeta.Finalizers, finalizerName)
+		if err := r.Update(context.Background(), template); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func appendCondition(templ *elasticsearchdbv1beta1.Template, response *resty.Response) {

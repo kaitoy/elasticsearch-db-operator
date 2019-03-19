@@ -17,6 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
+	"net/url"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -283,6 +285,16 @@ type IndexList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Index `json:"items"`
+}
+
+// GetURL returns an Elasticsearch URL that corresponds to the index
+func (i *Index) GetURL() (*url.URL, error) {
+	endpoint, err := url.Parse(i.URL.ElasticsearchEndpoint)
+	if err != nil {
+		return nil, err
+	}
+	endpoint.Path = "/" + i.URL.Index
+	return endpoint, nil
 }
 
 func init() {

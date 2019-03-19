@@ -17,6 +17,9 @@ limitations under the License.
 package v1beta1
 
 import (
+	"net/url"
+	"strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -70,6 +73,26 @@ type TemplateList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Template `json:"items"`
+}
+
+// GetURL returns an Elasticsearch URL that corresponds to the template
+func (t *Template) GetURL() (*url.URL, error) {
+	endpoint, err := url.Parse(t.URL.ElasticsearchEndpoint)
+	if err != nil {
+		return nil, err
+	}
+	endpoint.Path = "/_template/" + t.URL.Template
+	return endpoint, nil
+}
+
+// GetIndicesURL returns an Elasticsearch URL of indices that corresponds to the template
+func (t *Template) GetIndicesURL() (*url.URL, error) {
+	endpoint, err := url.Parse(t.URL.ElasticsearchEndpoint)
+	if err != nil {
+		return nil, err
+	}
+	endpoint.Path = strings.Join(t.Spec.IndexPatterns, ",")
+	return endpoint, nil
 }
 
 func init() {

@@ -19,7 +19,6 @@ package index
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"time"
 
 	elasticsearchdbv1beta1 "github.com/kaitoy/elasticsearch-db-operator/pkg/apis/elasticsearchdb/v1beta1"
@@ -28,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -84,6 +84,8 @@ type ReconcileIndex struct {
 	scheme *runtime.Scheme
 }
 
+const finalizerName = "index.finalizers.elasticsearchdb.kaitoy.github.com"
+
 // Reconcile reads that state of the cluster for a Index object and makes changes based on the state read
 // and what is in the Index.Spec
 // +kubebuilder:rbac:groups=elasticsearchdb.kaitoy.github.com,resources=indices,verbs=get;list;watch;create;update;patch;delete
@@ -104,124 +106,139 @@ func (r *ReconcileIndex) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{}, err
 	}
 
-	endpoint, err := url.Parse(instance.URL.ElasticsearchEndpoint)
-	if err != nil {
-		log.Error(err, "Invalid url: "+instance.URL.ElasticsearchEndpoint)
+	if instance.ObjectMeta.DeletionTimestamp.IsZero() {
+		err := reconcileCreationOrUpdate(instance, r)
 		return reconcile.Result{}, err
 	}
-	endpoint.Path = "/" + instance.URL.Index
-	log.Info("Operating an index: " + endpoint.String())
+	err = reconcileDeletion(instance, r)
+	return reconcile.Result{}, err
+}
 
-	const finalizerName = "index.finalizers.elasticsearchdb.kaitoy.github.com"
-	if instance.ObjectMeta.DeletionTimestamp.IsZero() {
-		if !utilsstrings.ContainsString(instance.ObjectMeta.Finalizers, finalizerName) {
-			log.Info(fmt.Sprintf("Adding a finalizer to %s.", instanceName))
-			instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, finalizerName)
+func reconcileCreationOrUpdate(index *elasticsearchdbv1beta1.Index, r *ReconcileIndex) error {
+	instanceName := types.NamespacedName{Name: index.Name, Namespace: index.Namespace}.String()
+	indexURL, err := index.GetURL()
+	if err != nil {
+		log.Error(err, "Failed to get URL of "+instanceName)
+		return err
+	}
+
+	if !utilsstrings.ContainsString(index.ObjectMeta.Finalizers, finalizerName) {
+		log.Info(fmt.Sprintf("Adding a finalizer to %s.", instanceName))
+		index.ObjectMeta.Finalizers = append(index.ObjectMeta.Finalizers, finalizerName)
+	}
+
+	response, err := resty.R().
+		Get(indexURL.String())
+	if err != nil {
+		log.Error(err, "Failed to GET "+indexURL.String())
+		return err
+	}
+
+	if len(index.Status.Conditions) > 0 {
+		lastCond := index.Status.Conditions[len(index.Status.Conditions)-1]
+		if lastCond.StatusCode != response.StatusCode() || lastCond.Status != response.Status() {
+			appendCondition(index, response)
 		}
+	} else {
+		appendCondition(index, response)
+	}
 
-		response, err := resty.R().
-			Get(endpoint.String())
+	if response.IsSuccess() {
+		log.Info(fmt.Sprintf("Index %s exists.", indexURL.String()))
+		if err := r.Update(context.Background(), index); err != nil {
+			log.Error(err, "Failed to update "+instanceName)
+			return err
+		}
+		return nil
+	} else if response.StatusCode() == 404 {
+		response, err = resty.R().
+			SetBody(index.Spec).
+			Put(indexURL.String())
 		if err != nil {
-			log.Error(err, "Failed to GET "+endpoint.String())
-			return reconcile.Result{}, err
-		}
-
-		if len(instance.Status.Conditions) > 0 {
-			lastCond := instance.Status.Conditions[len(instance.Status.Conditions)-1]
-			if lastCond.StatusCode != response.StatusCode() || lastCond.Status != response.Status() {
-				appendCondition(instance, response)
-			}
-		} else {
-			appendCondition(instance, response)
-		}
-
-		if response.IsSuccess() {
-			log.Info(fmt.Sprintf("Index %s exists.", endpoint.String()))
-			if err := r.Update(context.Background(), instance); err != nil {
+			log.Error(err, "Failed to PUT "+indexURL.String())
+			if err := r.Update(context.Background(), index); err != nil {
 				log.Error(err, "Failed to update "+instanceName)
-				return reconcile.Result{}, err
+				return err
 			}
-			return reconcile.Result{}, nil
-		} else if response.StatusCode() == 404 {
-			response, err = resty.R().
-				SetBody(instance.Spec).
-				Put(endpoint.String())
-			if err != nil {
-				log.Error(err, "Failed to PUT "+endpoint.String())
-				if err := r.Update(context.Background(), instance); err != nil {
-					log.Error(err, "Failed to update "+instanceName)
-					return reconcile.Result{}, err
-				}
-				return reconcile.Result{}, err
-			}
-			appendCondition(instance, response)
+			return err
+		}
+		appendCondition(index, response)
 
-			if response.IsError() {
-				err = fmt.Errorf(
-					"Got an error response '%s' for %s %s",
-					response.Status(),
-					response.Request.Method,
-					response.Request.URL,
-				)
-				log.Error(err, "An error occurred during creating an index "+endpoint.String())
-				if err := r.Update(context.Background(), instance); err != nil {
-					log.Error(err, "Failed to update "+instanceName)
-					return reconcile.Result{}, err
-				}
-				return reconcile.Result{}, err
-			}
-
-			log.Info(fmt.Sprintf("Succeeded to create an index %s.", endpoint.String()))
-		} else {
+		if response.IsError() {
 			err = fmt.Errorf(
 				"Got an error response '%s' for %s %s",
 				response.Status(),
 				response.Request.Method,
 				response.Request.URL,
 			)
-			log.Error(err, "An error occurred during getting an index "+endpoint.String())
-			if err := r.Update(context.Background(), instance); err != nil {
+			log.Error(err, "An error occurred during creating an index "+indexURL.String())
+			if err := r.Update(context.Background(), index); err != nil {
 				log.Error(err, "Failed to update "+instanceName)
-				return reconcile.Result{}, err
+				return err
 			}
-			return reconcile.Result{}, err
+			return err
 		}
 
-		if err := r.Update(context.Background(), instance); err != nil {
-			log.Error(err, "Failed to update "+instanceName)
-			return reconcile.Result{}, err
-		}
+		log.Info(fmt.Sprintf("Succeeded to create an index %s.", indexURL.String()))
 	} else {
-		// This instance is being deleted.
-		if utilsstrings.ContainsString(instance.ObjectMeta.Finalizers, finalizerName) {
-			log.Info(fmt.Sprintf("Deleting an index %s.", endpoint.String()))
-			response, err := resty.R().
-				Delete(endpoint.String())
-			if err != nil {
-				log.Error(err, "Failed to DELETE "+endpoint.String())
-				return reconcile.Result{}, err
-			}
-			if response.IsError() {
-				err = fmt.Errorf(
-					"Got an error response '%s' for %s %s",
-					response.Status(),
-					response.Request.Method,
-					response.Request.URL,
-				)
-				log.Error(err, "An error occurred during deleting an index "+endpoint.String())
-				return reconcile.Result{}, err
-			}
+		err = fmt.Errorf(
+			"Got an error response '%s' for %s %s",
+			response.Status(),
+			response.Request.Method,
+			response.Request.URL,
+		)
+		log.Error(err, "An error occurred during getting an index "+indexURL.String())
+		if err := r.Update(context.Background(), index); err != nil {
+			log.Error(err, "Failed to update "+instanceName)
+			return err
+		}
+		return err
+	}
 
-			log.Info(fmt.Sprintf("Succeeded to delete an index %s.", endpoint.String()))
+	if err := r.Update(context.Background(), index); err != nil {
+		log.Error(err, "Failed to update "+instanceName)
+		return err
+	}
 
-			instance.ObjectMeta.Finalizers = utilsstrings.RemoveString(instance.ObjectMeta.Finalizers, finalizerName)
-			if err := r.Update(context.Background(), instance); err != nil {
-				return reconcile.Result{}, err
-			}
+	return nil
+}
+
+func reconcileDeletion(index *elasticsearchdbv1beta1.Index, r *ReconcileIndex) error {
+	instanceName := types.NamespacedName{Name: index.Name, Namespace: index.Namespace}.String()
+	indexURL, err := index.GetURL()
+	if err != nil {
+		log.Error(err, "Failed to get URL of "+instanceName)
+		return err
+	}
+
+	if utilsstrings.ContainsString(index.ObjectMeta.Finalizers, finalizerName) {
+		log.Info(fmt.Sprintf("Deleting an index %s.", indexURL.String()))
+		response, err := resty.R().
+			Delete(indexURL.String())
+		if err != nil {
+			log.Error(err, "Failed to DELETE "+indexURL.String())
+			return err
+		}
+		if response.IsError() {
+			err = fmt.Errorf(
+				"Got an error response '%s' for %s %s",
+				response.Status(),
+				response.Request.Method,
+				response.Request.URL,
+			)
+			log.Error(err, "An error occurred during deleting an index "+indexURL.String())
+			return err
+		}
+
+		log.Info(fmt.Sprintf("Succeeded to delete an index %s.", indexURL.String()))
+
+		index.ObjectMeta.Finalizers = utilsstrings.RemoveString(index.ObjectMeta.Finalizers, finalizerName)
+		if err := r.Update(context.Background(), index); err != nil {
+			return err
 		}
 	}
 
-	return reconcile.Result{}, nil
+	return nil
 }
 
 func appendCondition(index *elasticsearchdbv1beta1.Index, response *resty.Response) {
